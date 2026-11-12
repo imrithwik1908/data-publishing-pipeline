@@ -1,14 +1,14 @@
 [project]
 name = "dpp"
 version = "0.1.0"
-description = "Add your description here"
+description = "Write-audit-publish pipeline: stage, audit against a data contract, publish or quarantine."
 requires-python = ">=3.12"
 dependencies = [
-    "duckdb>=2.0.0",
-    "pyarrow>=26.0.1",
-    "pydantic>=2.14.3",
-    "pyyaml>=6.0.3",
-    "typer>=0.29.1",
+    "duckdb>=1.1",
+    "pyarrow>=15",
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "typer>=0.12",
 ]
 
 [project.scripts]
@@ -31,6 +31,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["B008"]  # Typer uses function calls in defaults by design
+
+[tool.ruff.lint.per-file-ignores]
+"src/dpp/report.py" = ["E501"]  # inline HTML/CSS template
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

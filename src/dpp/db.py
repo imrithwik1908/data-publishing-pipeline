@@ -7,6 +7,13 @@ from pathlib import Path
 import duckdb
 
 from dpp.contract import Contract
+from dpp.settings import SQL_DIR
+
+# Batch lifecycle:
+#   landed -> audited -> published -> superseded (a newer batch replaced the month)
+#          \-> quarantined -> discarded (human threw it away) | published (human override)
+#   failed = the publish transaction rolled back
+STATUSES = ("landed", "audited", "quarantined", "published", "superseded", "discarded", "failed")
 
 
 def connect(path: Path) -> duckdb.DuckDBPyConnection:
@@ -14,7 +21,7 @@ def connect(path: Path) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(path))
 
 
-def init_warehouse(con: duckdb.DuckDBPyConnection, contract: Contract) -> None:
+def init_warehouse(con: duckdb.DuckDBPyConnection, contract: Contract, zone_csv: Path) -> None:
     con.execute("CREATE SEQUENCE IF NOT EXISTS batch_seq START 1")
     con.execute(
         """
@@ -24,7 +31,8 @@ def init_warehouse(con: duckdb.DuckDBPyConnection, contract: Contract) -> None:
             source_file   VARCHAR NOT NULL,
             checksum      VARCHAR NOT NULL,       -- sha256 of the file bytes
             mode          VARCHAR NOT NULL,       -- 'run' or 'backfill'
-            status        VARCHAR NOT NULL,       -- landed | quarantined | published | superseded | failed
+            status        VARCHAR NOT NULL,       -- see STATUSES below
+            contract_version INTEGER NOT NULL,
             row_count     BIGINT,
             rejected_rows BIGINT,
             created_at    TIMESTAMP NOT NULL DEFAULT current_timestamp,
@@ -62,6 +70,25 @@ def init_warehouse(con: duckdb.DuckDBPyConnection, contract: Contract) -> None:
         GROUP BY ALL
         """
     )
+    if con.execute("SELECT count(*) FROM duckdb_tables() WHERE table_name = 'dim_zone'").fetchone()[0] == 0:
+        run_models(con, zone_csv, only="dimensions")
+    run_models(con, zone_csv, only="views")
+
+
+def run_models(con: duckdb.DuckDBPyConnection, zone_csv: Path, only: str | None = None) -> None:
+    """Execute sql/models/*.sql in name order (optionally only files containing `only`)."""
+    for path in sorted((SQL_DIR / "models").glob("*.sql")):
+        if only and only not in path.name:
+            continue
+        con.execute(path.read_text().replace("{zone_csv}", str(zone_csv)))
+
+
+def run_assertions(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
+    """Run sql/assertions/*.sql. Each returns violating rows; returns {name: violation_count}."""
+    out = {}
+    for path in sorted((SQL_DIR / "assertions").glob("*.sql")):
+        out[path.stem] = len(con.execute(path.read_text()).fetchall())
+    return out
 
 
 def table_fingerprint(con: duckdb.DuckDBPyConnection, table: str) -> tuple[int, int]:

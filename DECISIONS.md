@@ -65,3 +65,40 @@ landing costs no extra disk space (908 MB down to 620 MB for 3 months).
 ## D10. Content fingerprint for "byte-for-byte equivalent in content"
 `count(*)` + `sum(hash(row))`. This does not depend on physical row order, so it shows that the content is the
 same even if DuckDB stores the rows in a different order.
+
+## D11. Contract v2: explain missing fields with a rule, not a percentage
+**What:** `make reproduce` showed null `passenger_count` rising every month: 10.3%, 8.9%, 15.5%, 22.6%
+(Nov 2024 to Feb 2025). Every one of those rows is a flex-fare trip (`payment_type = 0`). A fixed 30% null
+limit would soon have quarantined good data.
+**Decision:** a row rule `missing_fields_only_for_flex_fare`. Null-rate limits were loosened to 60%, as a gross
+sanity net only. The contract version went to 2, and every batch records the contract version it was checked
+with.
+**Lesson:** thresholds that describe *today's* data rot; rules that describe *meaning* do not.
+
+## D12. Steps are separate functions, coordinated through the `batches` table
+`land_batch`, `audit_batch` and `publish_batch` each read and advance the batch status
+(`landed -> audited -> published`). That lets Airflow run them as separate tasks. `publish` refuses any batch
+that is not `audited`, so nothing unaudited can reach the warehouse, even when called by hand.
+
+## D13. Humans resolve quarantines explicitly
+`pipeline resolve ID --discard`, or `--publish --reason "..."`. An override requires a reason, which is stored
+on the batch and shown in the report. An unreadable file can never be overridden. Discard frees the staging
+table and landed file.
+**Alternative:** auto-retry or auto-publish after N days. Rejected: the whole point is that a person decides.
+
+## D14. Airflow 3.4 in its own virtualenv
+Airflow pulls in about 370 MB and pins many libraries. It lives in `.venv-airflow`, installed with Airflow's
+official constraints file. The DAG holds no logic: each task calls one `dpp` function. CI does not install
+Airflow. `make airflow-test MONTH=2025-02` ran all 6 tasks successfully. The DAG has `max_active_runs=1`, on
+top of the file lock.
+**Alternative:** cron + `pipeline run`. That would work, but you lose retries, a UI, and run history per task.
+
+## D15. Money stored as DOUBLE
+The source files store money as DOUBLE, and the warehouse keeps it that way so values survive a round trip
+exactly. Views round sums to cents. In a real finance warehouse I would use DECIMAL(12,2) and say so in the
+contract.
+
+## D16. Loose dependency floors
+`uv add` writes floors like `typer>=0.29`, which conflicted with Airflow's constraints. Floors are now the
+oldest versions the code needs (`duckdb>=1.1`, etc.). `uv.lock` still pins exact versions for reproducible
+installs.

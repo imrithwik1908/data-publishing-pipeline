@@ -27,6 +27,27 @@ DEFECTS = [
     "extra_column",  # 8. harmless new column (should only warn)
 ]
 
+# For each defect: the ERROR check that must fail. None = must still publish (with a warning).
+EXPECTED_CHECK: dict[str, str | None] = {
+    "missing_column": "schema.missing_columns",
+    "retyped_column": "schema.incompatible_types",
+    "negative_fares": "rejected_row_rate",
+    "wrong_month": "rejected_row_rate",
+    "row_collapse": "row_count_band",
+    "duplicated_rows": "duplicate_rows",
+    "corrupt_file": "file_readable",
+    "extra_column": None,
+}
+
+
+def behaved_as_specified(defect: str, result) -> bool:
+    """Did the pipeline do the right thing with this defect? (shared by tests, demo, reproduce)"""
+    expected = EXPECTED_CHECK[defect]
+    if expected is None:
+        return result.status == "published" and any(w.check_name == "schema.extra_columns" for w in result.warnings)
+    return result.status == "quarantined" and expected in {f.check_name for f in result.failing}
+
+
 # Real-ish payment mix observed in Jan 2025: 0=flex fare, 1=card, 2=cash, 3=no charge, 4=dispute
 _PAYMENT_WEIGHTS = {0: 0.15, 1: 0.70, 2: 0.11, 3: 0.01, 4: 0.03}
 

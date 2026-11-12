@@ -38,13 +38,15 @@ def land_file(source: Path, month: str, checksum: str, landing_dir: Path) -> Pat
     return dest
 
 
-def register_batch(con: duckdb.DuckDBPyConnection, month: str, source: Path, checksum: str, mode: str) -> int:
+def register_batch(
+    con: duckdb.DuckDBPyConnection, month: str, source: Path, checksum: str, mode: str, contract_version: int
+) -> int:
     (batch_id,) = con.execute(
         """
-        INSERT INTO batches (batch_id, month, source_file, checksum, mode, status)
-        VALUES (nextval('batch_seq'), ?, ?, ?, ?, 'landed')
+        INSERT INTO batches (batch_id, month, source_file, checksum, mode, status, contract_version)
+        VALUES (nextval('batch_seq'), ?, ?, ?, ?, 'landed', ?)
         RETURNING batch_id
         """,
-        [month, str(source), checksum, mode],
+        [month, str(source), checksum, mode, contract_version],
     ).fetchone()
     return batch_id

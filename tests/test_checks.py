@@ -7,17 +7,7 @@ import pytest
 
 from dpp import synthetic
 
-# defect -> the ERROR check that must fail (None = must publish with a warning)
-EXPECTED = {
-    "missing_column": "schema.missing_columns",
-    "retyped_column": "schema.incompatible_types",
-    "negative_fares": "rejected_row_rate",
-    "wrong_month": "rejected_row_rate",
-    "row_collapse": "row_count_band",
-    "duplicated_rows": "duplicate_rows",
-    "corrupt_file": "file_readable",
-    "extra_column": None,
-}
+EXPECTED = synthetic.EXPECTED_CHECK
 
 
 def _publish_baseline(files, run, months=("2024-10", "2024-11", "2024-12")):
@@ -41,6 +31,7 @@ def test_each_defect_behaves_as_specified(defect, files, run, tmp_path, fingerpr
 
     r = run(bad, "2025-01")
 
+    assert synthetic.behaved_as_specified(defect, r)
     expected_check = EXPECTED[defect]
     if expected_check is None:
         assert r.status == "published"
@@ -87,3 +78,21 @@ def test_cbd_fee_column_is_optional_before_2025(files, run):
     """Dec 2024 lacks cbd_congestion_fee and Jan 2025 has it; both must publish."""
     assert run(files("2024-12"), "2024-12").status == "published"
     assert run(files("2025-01"), "2025-01").status == "published"
+
+
+def test_missing_passenger_count_is_only_ok_for_flex_fares(files, run, tmp_path):
+    """A non-flex trip with no passenger_count is a broken row, even if the null rate looks small."""
+    import pyarrow as pa
+    import pyarrow.compute as pc
+
+    t = pq.read_table(files("2024-10"))
+    card = pc.equal(t["payment_type"], 1)
+    hit = pc.and_(card, pc.less(pa.array(range(t.num_rows)), 200))  # ~140 card rows lose passenger_count
+    i = t.schema.get_field_index("passenger_count")
+    t = t.set_column(i, "passenger_count", pc.if_else(hit, pa.scalar(None, pa.int64()), t["passenger_count"]))
+    path = tmp_path / "pc.parquet"
+    pq.write_table(t, path)
+    r = run(path, "2024-10")
+    rule = next(x for x in r.results if x.check_name == "row_rule.missing_fields_only_for_flex_fare")
+    assert rule.status == "fail" and int(rule.observed) > 100
+    assert r.status == "quarantined"  # > 0.5% of 5,000 rows

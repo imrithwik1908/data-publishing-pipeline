@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-11-12T04:23:10+00:00",
+  "machine": "Darwin arm64, Python 3.12.13",
+  "duckdb": "2.0.0",
+  "months": [
+    "2024-11",
+    "2024-12",
+    "2025-01",
+    "2025-02"
+  ],
+  "real_data_profile": [
+    {
+      "month": "2024-11",
+      "rows": 3646369,
+      "negative_fare_pct": 1.96,
+      "negative_fares_on_card": 16,
+      "null_passenger_count_pct": 10.25,
+      "null_passenger_count_that_are_flex_fare_pct": 100.0,
+      "has_cbd_congestion_fee": false
+    },
+    {
+      "month": "2024-12",
+      "rows": 3668371,
+      "negative_fare_pct": 2.14,
+      "negative_fares_on_card": 28,
+      "null_passenger_count_pct": 8.89,
+      "null_passenger_count_that_are_flex_fare_pct": 100.0,
+      "has_cbd_congestion_fee": false
+    },
+    {
+      "month": "2025-01",
+      "rows": 3475226,
+      "negative_fare_pct": 4.15,
+      "negative_fares_on_card": 14,
+      "null_passenger_count_pct": 15.54,
+      "null_passenger_count_that_are_flex_fare_pct": 100.0,
+      "has_cbd_congestion_fee": true
+    },
+    {
+      "month": "2025-02",
+      "rows": 3577543,
+      "negative_fare_pct": 5.11,
+      "negative_fares_on_card": 8,
+      "null_passenger_count_pct": 22.56,
+      "null_passenger_count_that_are_flex_fare_pct": 100.0,
+      "has_cbd_congestion_fee": true
+    }
+  ],
+  "publish": [
+    {
+      "month": "2024-11",
+      "status": "published",
+      "rows_published": 3645118,
+      "rows_rejected": 1251,
+      "rejected_pct": 0.0343,
+      "seconds": 1.48,
+      "rows_per_second": 2465921
+    },
+    {
+      "month": "2024-12",
+      "status": "published",
+      "rows_published": 3668119,
+      "rows_rejected": 252,
+      "rejected_pct": 0.0069,
+      "seconds": 1.28,
+      "rows_per_second": 2876536
+    },
+    {
+      "month": "2025-01",
+      "status": "published",
+      "rows_published": 3474944,
+      "rows_rejected": 282,
+      "rejected_pct": 0.0081,
+      "seconds": 1.16,
+      "rows_per_second": 2986344
+    },
+    {
+      "month": "2025-02",
+      "status": "published",
+      "rows_published": 3577260,
+      "rows_rejected": 283,
+      "rejected_pct": 0.0079,
+      "seconds": 1.22,
+      "rows_per_second": 2927602
+    }
+  ],
+  "defects": [
+    {
+      "defect": "missing_column",
+      "expected_failing_check": "schema.missing_columns",
+      "status": "quarantined",
+      "failing_checks": [
+        "schema.missing_columns",
+        "rejected_row_rate"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "retyped_column",
+      "expected_failing_check": "schema.incompatible_types",
+      "status": "quarantined",
+      "failing_checks": [
+        "schema.incompatible_types"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "negative_fares",
+      "expected_failing_check": "rejected_row_rate",
+      "status": "quarantined",
+      "failing_checks": [
+        "rejected_row_rate"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "wrong_month",
+      "expected_failing_check": "rejected_row_rate",
+      "status": "quarantined",
+      "failing_checks": [
+        "rejected_row_rate"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "row_collapse",
+      "expected_failing_check": "row_count_band",
+      "status": "quarantined",
+      "failing_checks": [
+        "row_count_band"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "duplicated_rows",
+      "expected_failing_check": "duplicate_rows",
+      "status": "quarantined",
+      "failing_checks": [
+        "row_count_band",
+        "duplicate_rows"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "corrupt_file",
+      "expected_failing_check": "file_readable",
+      "status": "quarantined",
+      "failing_checks": [
+        "file_readable"
+      ],
+      "behaved_as_specified": true
+    },
+    {
+      "defect": "extra_column",
+      "expected_failing_check": null,
+      "status": "published",
+      "failing_checks": [],
+      "behaved_as_specified": true
+    }
+  ],
+  "defects_handled_as_specified": "8/8",
+  "quarantined_batches": 7,
+  "quarantined_batches_changed_warehouse": 0,
+  "rerun_identical_fingerprints": "5/5",
+  "partial_publishes_after_forced_crash": 0,
+  "reverse_order_backfill_identical": true,
+  "warehouse_assertions": {
+    "dimension_keys_unique": 0,
+    "fact_months_match_published_batches": 0,
+    "fact_rows_inside_their_month": 0,
+    "fact_zones_exist_in_dim_zone": 0,
+    "no_quarantined_month_without_reason": 0,
+    "one_published_batch_per_month": 0
+  },
+  "total_seconds": 31.0
+}

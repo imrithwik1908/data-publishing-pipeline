@@ -1,18 +1,20 @@
 # Data contract for NYC TLC yellow taxi monthly files.
 # Severity: ERROR quarantines the batch; WARN is recorded only.
 name: yellow_trips
-version: 1
+version: 2  # v2: missing passenger fields explained by a row rule, not a fixed null %
 time_column: tpep_pickup_datetime
 
 columns:
   - {name: VendorID,              type: INTEGER,   max_null_rate: 0.0}
   - {name: tpep_pickup_datetime,  type: TIMESTAMP, max_null_rate: 0.0}
   - {name: tpep_dropoff_datetime, type: TIMESTAMP, max_null_rate: 0.0}
-  # Null for "flex fare" trips (payment_type 0), ~15% of real rows in early 2025.
-  - {name: passenger_count,       type: BIGINT,    max_null_rate: 0.30}
+  # Null only for "flex fare" trips (payment_type 0); that share grew from 10% to 23% between
+  # Nov 2024 and Feb 2025, so the real rule is the row rule `missing_fields_only_for_flex_fare`.
+  # The null-rate limits below are just a gross sanity net.
+  - {name: passenger_count,       type: BIGINT,    max_null_rate: 0.60}
   - {name: trip_distance,         type: DOUBLE,    max_null_rate: 0.0}
-  - {name: RatecodeID,            type: BIGINT,    max_null_rate: 0.30}
-  - {name: store_and_fwd_flag,    type: VARCHAR,   max_null_rate: 0.30}
+  - {name: RatecodeID,            type: BIGINT,    max_null_rate: 0.60}
+  - {name: store_and_fwd_flag,    type: VARCHAR,   max_null_rate: 0.60}
   - {name: PULocationID,          type: INTEGER,   max_null_rate: 0.0}
   - {name: DOLocationID,          type: INTEGER,   max_null_rate: 0.0}
   - {name: payment_type,          type: BIGINT,    max_null_rate: 0.0}
@@ -23,8 +25,8 @@ columns:
   - {name: tolls_amount,          type: DOUBLE}
   - {name: improvement_surcharge, type: DOUBLE}
   - {name: total_amount,          type: DOUBLE,    max_null_rate: 0.0}
-  - {name: congestion_surcharge,  type: DOUBLE,    max_null_rate: 0.30}
-  - {name: Airport_fee,           type: DOUBLE,    max_null_rate: 0.30, aliases: [airport_fee]}
+  - {name: congestion_surcharge,  type: DOUBLE,    max_null_rate: 0.60}
+  - {name: Airport_fee,           type: DOUBLE,    max_null_rate: 0.60, aliases: [airport_fee]}
   # Added by TLC starting January 2025 (Manhattan congestion pricing).
   - {name: cbd_congestion_fee,    type: DOUBLE,    required: false}
 
@@ -42,6 +44,8 @@ row_rules:
     sql: "PULocationID BETWEEN 1 AND 265 AND DOLocationID BETWEEN 1 AND 265"
   # Negative fares are legitimate refunds/disputes/voids for other payment types,
   # but a card payment (payment_type 1) should never have a negative fare.
+  - name: missing_fields_only_for_flex_fare
+    sql: "payment_type = 0 OR (passenger_count IS NOT NULL AND RatecodeID IS NOT NULL)"
   - name: card_fare_non_negative
     sql: "payment_type <> 1 OR fare_amount >= 0"
 

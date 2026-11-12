@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     data_dir: Path
     contract_path: Path
+    zone_lookup: Path = REPO_ROOT / "reference" / "taxi_zone_lookup.csv"
 
     @property
     def warehouse(self) -> Path:
@@ -33,6 +34,13 @@ class Settings:
     @property
     def raw_dir(self) -> Path:
         return self.data_dir / "raw"
+
+    @property
+    def report_dir(self) -> Path:
+        return self.data_dir / "report"
+
+
+SQL_DIR = REPO_ROOT / "sql"
 
 
 def default_settings() -> Settings:
