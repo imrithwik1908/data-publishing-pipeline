@@ -4,7 +4,7 @@
 written data contract, and then either published in one atomic step or quarantined with the exact failing
 checks. Re-running any month is safe.
 
-[![ci](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![ci](https://github.com/imrithwik1908/data-publishing-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/imrithwik1908/data-publishing-pipeline/actions/workflows/ci.yml)
 
 **Who it is for:** an analytics or data engineer who owns a recurring file feed (here, NYC TLC yellow taxi
 trips, about 3.6M rows a month) whose analysts depend on the tables built from it.
@@ -40,7 +40,7 @@ Real-data findings that shaped the contract (also from `make reproduce`):
 Needs [uv](https://docs.astral.sh/uv/) and about 250 MB of disk.
 
 ```bash
-git clone <this repo> && cd data-publishing-pipeline
+git clone https://github.com/imrithwik1908/data-publishing-pipeline.git && cd data-publishing-pipeline
 make demo        # downloads 3 real months (~180 MB once), publishes them, injects 8 defects
 open data/demo/report/index.html
 ```
