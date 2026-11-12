@@ -219,3 +219,33 @@ def resolve(settings: Settings, batch_id: int, *, action: str, reason: str = "")
 def warehouse_assertions(settings: Settings) -> dict[str, int]:
     with session(settings, locked=False) as (con, _):
         return db.run_assertions(con)
+
+
+def compact(settings: Settings) -> tuple[int, int, int]:
+    """Reclaim disk: delete landed files only superseded/discarded batches use, then rewrite the
+    DuckDB file (it does not shrink after DELETEs). Returns (files_removed, bytes_before, bytes_after)."""
+    with pipeline_lock(settings.lock_file):
+        before = settings.warehouse.stat().st_size
+        con = db.connect(settings.warehouse)
+        try:
+            stale = con.execute(
+                """SELECT DISTINCT source_file FROM batches b
+                   WHERE status IN ('superseded', 'discarded')
+                     AND NOT EXISTS (SELECT 1 FROM batches o WHERE o.source_file = b.source_file
+                                     AND o.status NOT IN ('superseded', 'discarded'))"""
+            ).fetchall()
+            removed = 0
+            for (f,) in stale:
+                p = Path(f)
+                if p.exists():
+                    p.unlink()
+                    removed += 1
+            tmp = settings.warehouse.with_suffix(".compact.duckdb")
+            tmp.unlink(missing_ok=True)
+            con.execute(f"ATTACH '{tmp}' AS compacted")
+            con.execute("COPY FROM DATABASE warehouse TO compacted")
+            con.execute("DETACH compacted")
+        finally:
+            con.close()
+        tmp.replace(settings.warehouse)  # atomic swap; the lock keeps other runs out meanwhile
+        return removed, before, settings.warehouse.stat().st_size

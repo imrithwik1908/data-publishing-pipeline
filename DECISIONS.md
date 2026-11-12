@@ -102,3 +102,9 @@ contract.
 `uv add` writes floors like `typer>=0.29`, which conflicted with Airflow's constraints. Floors are now the
 oldest versions the code needs (`duckdb>=1.1`, etc.). `uv.lock` still pins exact versions for reproducible
 installs.
+
+## D17. Disk: `pipeline compact`
+DuckDB reuses freed pages but does not shrink the file after `DELETE`, and superseded batches keep their
+landed files. `compact` deletes landed files that only superseded or discarded batches reference, then
+`COPY FROM DATABASE` into a new file and renames it into place (atomic, under the run lock). On the demo
+warehouse this went from 582 MB to 372 MB. Raw downloads stay capped by `fetch.MAX_TOTAL_BYTES`.

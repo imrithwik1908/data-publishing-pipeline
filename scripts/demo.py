@@ -66,6 +66,9 @@ def main() -> None:
     for name, n in results.items():
         print(f"{GREEN + 'PASS' if n == 0 else RED + 'FAIL'}{END} {name}")
 
+    removed, before, after = pipeline.compact(s)
+    print(f"\nCompacted: removed {removed} stale landed files, warehouse {before / 1e6:.0f} -> {after / 1e6:.0f} MB")
+
     report = build_report(s)
     caught = sum(o.ok for o in outcomes)
     print(f"\n{caught}/{len(outcomes)} injected defects handled as specified.")

@@ -48,7 +48,7 @@ open data/demo/report/index.html
 Other entry points:
 
 ```bash
-make test                      # 33 tests on synthetic data, no downloads, ~6 s
+make test                      # 34 tests on synthetic data, no downloads, ~6 s
 make reproduce                 # re-measure every number in this README
 uv run pipeline run 2025-03    # fetch + process one month into data/warehouse.duckdb
 uv run pipeline backfill --from 2024-07 --to 2025-06
@@ -57,6 +57,7 @@ uv run pipeline explain 6      # every check result for a batch
 uv run pipeline resolve 6 --discard            # or --publish --reason "..."
 uv run pipeline verify         # SQL assertions on the warehouse
 uv run pipeline report         # static HTML run history
+uv run pipeline compact        # reclaim disk after re-runs (DuckDB files do not shrink on DELETE)
 make airflow-install && make airflow-test MONTH=2025-02   # optional: run the Airflow DAG once
 ```
 
@@ -116,6 +117,7 @@ Full reasoning is in [DECISIONS.md](DECISIONS.md). Interview prep is in [DEFENSE
 - Batch, not streaming. One data source. The contract is hand-written.
 - The row-count band needs 1+ published months before it can judge; the first month always passes it.
 - Money is stored as DOUBLE, as in the source. A finance warehouse should use DECIMAL.
+- DuckDB files do not shrink after the delete-and-reinsert cycle. `pipeline compact` rewrites the file (measured 582 → 372 MB on the demo warehouse).
 - Airflow is demo-only (`airflow standalone`, SQLite), and CI does not run it.
 
 ## Repository map
@@ -126,7 +128,7 @@ contracts/     the data contract (YAML, validated by Pydantic)
 sql/           dimension + view models, SQL assertions
 dags/          Airflow DAG (thin wrappers)
 scripts/       demo.py, reproduce.py
-tests/         33 pytest tests on synthetic data
+tests/         34 pytest tests on synthetic data
 results/       output of `make reproduce`
 reference/     TLC taxi zone lookup
 ```

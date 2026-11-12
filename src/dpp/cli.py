@@ -157,6 +157,13 @@ def resolve(
 
 
 @app.command()
+def compact() -> None:
+    """Reclaim disk: prune superseded landed files and rewrite the warehouse file."""
+    removed, before, after = _guard(lambda: pipeline.compact(default_settings()))
+    typer.echo(f"removed {removed} stale landed files; warehouse {before / 1e6:.0f} MB -> {after / 1e6:.0f} MB")
+
+
+@app.command()
 def report() -> None:
     """Write the static HTML run-history report."""
     from dpp.report import build_report

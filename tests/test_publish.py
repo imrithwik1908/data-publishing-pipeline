@@ -75,3 +75,22 @@ def test_second_run_cannot_start_while_lock_held(files, run, settings):
     with pipeline_lock(settings.lock_file):
         with pytest.raises(PipelineLocked):
             run(files("2024-10"), "2024-10")
+
+
+def test_compact_keeps_content_and_prunes_superseded_files(files, run, fingerprint, settings):
+    from pathlib import Path
+
+    import duckdb
+
+    from dpp.pipeline import compact
+
+    run(files("2024-10"), "2024-10")
+    run(files("2024-10", seed=3), "2024-10")  # supersedes the first delivery
+    before = (fingerprint("fact_trips"), fingerprint("rejected_rows"))
+    con = duckdb.connect(str(settings.warehouse), read_only=True)
+    old = Path(con.execute("SELECT source_file FROM batches WHERE status = 'superseded'").fetchone()[0])
+    con.close()
+    removed, _, _ = compact(settings)
+    assert removed == 1 and not old.exists()
+    assert (fingerprint("fact_trips"), fingerprint("rejected_rows")) == before
+    assert run(files("2024-11"), "2024-11").status == "published"  # warehouse still fully usable
