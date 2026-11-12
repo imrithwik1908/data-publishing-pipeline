@@ -1,0 +1,59 @@
+# Data contract for NYC TLC yellow taxi monthly files.
+# Severity: ERROR quarantines the batch; WARN is recorded only.
+name: yellow_trips
+version: 1
+time_column: tpep_pickup_datetime
+
+columns:
+  - {name: VendorID,              type: INTEGER,   max_null_rate: 0.0}
+  - {name: tpep_pickup_datetime,  type: TIMESTAMP, max_null_rate: 0.0}
+  - {name: tpep_dropoff_datetime, type: TIMESTAMP, max_null_rate: 0.0}
+  # Null for "flex fare" trips (payment_type 0), ~15% of real rows in early 2025.
+  - {name: passenger_count,       type: BIGINT,    max_null_rate: 0.30}
+  - {name: trip_distance,         type: DOUBLE,    max_null_rate: 0.0}
+  - {name: RatecodeID,            type: BIGINT,    max_null_rate: 0.30}
+  - {name: store_and_fwd_flag,    type: VARCHAR,   max_null_rate: 0.30}
+  - {name: PULocationID,          type: INTEGER,   max_null_rate: 0.0}
+  - {name: DOLocationID,          type: INTEGER,   max_null_rate: 0.0}
+  - {name: payment_type,          type: BIGINT,    max_null_rate: 0.0}
+  - {name: fare_amount,           type: DOUBLE,    max_null_rate: 0.0}
+  - {name: extra,                 type: DOUBLE}
+  - {name: mta_tax,               type: DOUBLE}
+  - {name: tip_amount,            type: DOUBLE}
+  - {name: tolls_amount,          type: DOUBLE}
+  - {name: improvement_surcharge, type: DOUBLE}
+  - {name: total_amount,          type: DOUBLE,    max_null_rate: 0.0}
+  - {name: congestion_surcharge,  type: DOUBLE,    max_null_rate: 0.30}
+  - {name: Airport_fee,           type: DOUBLE,    max_null_rate: 0.30, aliases: [airport_fee]}
+  # Added by TLC starting January 2025 (Manhattan congestion pricing).
+  - {name: cbd_congestion_fee,    type: DOUBLE,    required: false}
+
+# Row-level rules: SQL predicates a VALID row must satisfy.
+# {month_start} / {month_end} are filled in with the batch's month.
+# NULL counts as a violation.
+row_rules:
+  - name: pickup_in_month
+    sql: "tpep_pickup_datetime >= TIMESTAMP '{month_start}' AND tpep_pickup_datetime < TIMESTAMP '{month_end}'"
+  - name: pickup_before_dropoff
+    sql: "tpep_dropoff_datetime >= tpep_pickup_datetime"
+  - name: trip_distance_sane
+    sql: "trip_distance BETWEEN 0 AND 200"
+  - name: known_pickup_zone
+    sql: "PULocationID BETWEEN 1 AND 265 AND DOLocationID BETWEEN 1 AND 265"
+  # Negative fares are legitimate refunds/disputes/voids for other payment types,
+  # but a card payment (payment_type 1) should never have a negative fare.
+  - name: card_fare_non_negative
+    sql: "payment_type <> 1 OR fare_amount >= 0"
+
+# Above this share of rejected rows, the whole batch is quarantined.
+max_rejected_row_rate: 0.005
+
+checks:
+  extra_columns:   {severity: WARN}
+  retyped_columns: {severity: WARN}   # same type family (e.g. BIGINT -> DOUBLE): cast and warn
+  row_count_band:  {severity: ERROR, lookback_months: 3, tolerance: 0.40}
+  duplicate_rows:
+    severity: ERROR
+    max_rate: 0.001
+    key: [VendorID, tpep_pickup_datetime, tpep_dropoff_datetime, PULocationID, DOLocationID, trip_distance, fare_amount, total_amount]
+  freshness:       {severity: ERROR}
